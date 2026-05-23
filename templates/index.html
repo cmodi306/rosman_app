@@ -1,0 +1,489 @@
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5/css/xterm.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8/lib/xterm-addon-fit.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:          #060d18;
+            --surface:     #0c1526;
+            --surface-2:   #112036;
+            --surface-3:   #162840;
+            --border:      #1e3a58;
+            --border-dim:  #142a42;
+            --accent:      #00b4d8;
+            --accent-dim:  #0096b4;
+            --green:       #22c55e;
+            --red:         #ef4444;
+            --text:        #dce8f0;
+            --text-muted:  #5d8099;
+            --mono:        'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-size: 14px;
+            min-height: 100vh;
+        }
+
+        /* ── Header ─────────────────────────────────── */
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 28px;
+            height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .brand-logo {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+        }
+        .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+        .brand-name { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
+        .brand-sub  { font-size: 10px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+
+        #source_status {
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-style: normal;
+            transition: all 0.2s;
+        }
+        #source_status.ok  { background: rgba(34,197,94,.12); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+        #source_status.err { background: rgba(239,68,68,.12); color: var(--red);   border: 1px solid rgba(239,68,68,.3); }
+        #source_status.loading { color: var(--text-muted); border: 1px solid var(--border); }
+
+        /* ── Content ─────────────────────────────────── */
+        .content { padding: 24px 28px; }
+
+        /* ── Card ────────────────────────────────────── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+        }
+        .card-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .recent-chip {
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 99px;
+            background: var(--surface-3);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 420px;
+        }
+        .recent-chip:hover { color: var(--accent); border-color: var(--accent); }
+
+        /* ── Setup row ───────────────────────────────── */
+        .setup-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .path-input {
+            flex: 1; min-width: 280px; max-width: 540px;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-family: var(--mono);
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .path-input:focus   { border-color: var(--accent); }
+        .path-input::placeholder { color: var(--text-muted); }
+
+        /* ── Buttons ─────────────────────────────────── */
+        .btn {
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: filter 0.15s, background 0.15s;
+            white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .btn:hover { filter: brightness(1.15); }
+        .btn:active { filter: brightness(0.9); }
+
+        .btn-primary { background: var(--accent);     color: #000; }
+        .btn-ghost   { background: var(--surface-2);  color: var(--text); border: 1px solid var(--border); }
+        .btn-ghost:hover { background: var(--surface-3); filter: none; }
+        .btn-start   { background: rgba(34,197,94,.15);  color: var(--green); border: 1px solid rgba(34,197,94,.25); }
+        .btn-start:hover { background: rgba(34,197,94,.28); filter: none; }
+        .btn-stop    { background: rgba(239,68,68,.15);  color: var(--red);   border: 1px solid rgba(239,68,68,.25); }
+        .btn-stop:hover  { background: rgba(239,68,68,.28); filter: none; }
+        .btn-logs    { background: var(--surface-3); color: var(--text-muted); border: 1px solid var(--border); }
+        .btn-logs:hover  { color: var(--text); background: var(--surface-2); filter: none; }
+        .btn-sm { padding: 5px 11px; font-size: 12px; }
+
+        /* ── Toolbar ─────────────────────────────────── */
+        .toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .search-input {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 7px 12px;
+            font-size: 13px; width: 260px; outline: none;
+            transition: border-color 0.15s;
+        }
+        .search-input:focus { border-color: var(--accent); }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-input:disabled { opacity: 0.4; }
+        .node-count { font-size: 12px; color: var(--text-muted); }
+
+        /* ── Table ───────────────────────────────────── */
+        .node-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .node-table thead th {
+            background: var(--surface-2);
+            padding: 10px 16px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+        .node-table td {
+            padding: 9px 16px;
+            border-bottom: 1px solid var(--border-dim);
+            vertical-align: middle;
+        }
+        .node-table tbody tr:last-child td { border-bottom: none; }
+        .node-table tbody tr:hover td { background: rgba(0,180,216,.04); }
+
+        .node-table input {
+            background: transparent;
+            color: var(--text);
+            border: none;
+            font-family: var(--mono);
+            font-size: 12px;
+            width: 100%; outline: none;
+        }
+        .node-table input[readonly] { color: var(--accent); cursor: default; }
+
+        .status-cell { width: 28px; text-align: center; }
+        .status-dot  {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--border);
+            display: inline-block;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+        .running .status-dot { background: var(--green); box-shadow: 0 0 7px var(--green); }
+        .stopped .status-dot { background: var(--red); }
+        .running td { background: rgba(34,197,94,.04) !important; }
+        .stopped td { background: rgba(239,68,68,.04) !important; }
+
+        .actions-cell { display: flex; gap: 6px; }
+
+        /* ── Log Modal ───────────────────────────────── */
+        #modal_backdrop {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.55); z-index: 999;
+            backdrop-filter: blur(2px);
+        }
+        #log_modal {
+            display: none; flex-direction: column;
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 92vw; max-width: 1120px; height: 440px;
+            background: #07101e;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            z-index: 1000;
+            box-shadow: 0 24px 80px rgba(0,0,0,.8);
+            overflow: hidden;
+        }
+        #log_modal.open { display: flex; }
+        .modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 16px;
+            background: var(--surface-2);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .modal-title {
+            font-family: var(--mono); font-size: 13px; color: var(--accent);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .modal-live-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--green); box-shadow: 0 0 6px var(--green);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+        }
+        #terminal_container { flex: 1; overflow: hidden; padding: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="modal_backdrop" onclick="closeLog()"></div>
+    <div id="log_modal">
+        <div class="modal-header">
+            <div class="modal-title">
+                <span class="modal-live-dot"></span>
+                <span id="log_title">—</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="closeLog()">✕  Close</button>
+        </div>
+        <div id="terminal_container"></div>
+    </div>
+
+    <header class="header">
+        <div class="brand">
+            <div class="brand-logo">🐢</div>
+            <div class="brand-text">
+                <span class="brand-name">ROSMAN</span>
+                <span class="brand-sub">Power of nodes, in the palm of your hand!</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="content">
+
+        <div class="card">
+            <div class="card-label">Workspace</div>
+            <div class="setup-row">
+                <input id="setup_path" type="text" class="path-input"
+                       placeholder="/opt/ros/humble/setup.bash">
+                <button class="btn btn-ghost" onclick="browseFile()">Browse</button>
+                <button class="btn btn-primary" onclick="sourceSetup()">Source</button>
+            </div>
+            <div id="recent_paths" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;"></div>
+        </div>
+        <span id="source_status" style="display:inline-block; margin-bottom:16px;"></span>
+
+        <div id="limit_banner" style="display:none; margin-bottom:14px; padding:10px 16px;
+             background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3);
+             border-radius:8px; font-size:13px; color:#ef4444;">
+            ⚠ You've reached the <strong id="limit_count"></strong>-node limit of the beta version.
+            <a href="mailto:beermoney3006@gmail.com?subject=rosman full version"
+               style="color:#00b4d8; margin-left:8px;">Contact us to upgrade →</a>
+        </div>
+
+        <div class="toolbar">
+            <input class="search-input" id="search" placeholder="🔍  Filter packages…"
+                   oninput="filterRows()" disabled>
+            <span class="node-count" id="node_count"></span>
+        </div>
+
+        <table class="node-table">
+            <thead>
+                <tr>
+                    <th class="status-cell"></th>
+                    <th>Package</th>
+                    <th>Node / Executable</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="node_rows"></tbody>
+        </table>
+
+    </div>
+
+    <script>
+        const RECENT_KEY = "rosman_recent_paths";
+        const MAX_RECENT = 5;
+
+        function loadRecentPaths() {
+            return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
+        }
+
+        function saveRecentPath(path) {
+            const paths = [path, ...loadRecentPaths().filter(p => p !== path)].slice(0, MAX_RECENT);
+            localStorage.setItem(RECENT_KEY, JSON.stringify(paths));
+            renderRecentPaths();
+        }
+
+        function renderRecentPaths() {
+            const paths = loadRecentPaths();
+            const container = document.getElementById("recent_paths");
+            if (!paths.length) { container.innerHTML = ""; return; }
+            container.innerHTML = paths.map(p => `
+                <button class="recent-chip" title="${p}" onclick="selectRecentPath('${p.replace(/'/g, "\\'")}')">
+                    ${p}
+                </button>`).join("");
+        }
+
+        function selectRecentPath(path) {
+            document.getElementById("setup_path").value = path;
+        }
+
+        async function browseFile() {
+            const res  = await fetch("/browse");
+            const data = await res.json();
+            if (data.error === "unavailable") {
+                alert("File browser unavailable in Docker — type the path directly.");
+            } else if (data.path) {
+                document.getElementById("setup_path").value = data.path;
+            }
+        }
+
+        async function sourceSetup() {
+            const path   = document.getElementById("setup_path").value.trim();
+            const status = document.getElementById("source_status");
+            if (!path) { alert("Enter a setup file path first."); return; }
+
+            status.className = "loading";
+            status.textContent = "Sourcing…";
+
+            const res  = await fetch(`/source?setup_path=${encodeURIComponent(path)}`, { method: "POST" });
+            const data = await res.json();
+
+            if (data.error) {
+                status.className = "err";
+                status.textContent = "✗  Please check the source file.";
+                return;
+            }
+
+            const count = Object.keys(data.packages).length;
+            status.className = "ok";
+            status.textContent = `✓  ${count} packages`;
+            saveRecentPath(path);
+
+            const search = document.getElementById("search");
+            search.disabled = false;
+            document.getElementById("node_count").textContent = `${count} packages`;
+
+            const sorted = Object.entries(data.packages).sort(([a], [b]) => a.localeCompare(b));
+            document.getElementById("node_rows").innerHTML = sorted.flatMap(([pkg, nodes]) =>
+                nodes.map(node => `
+                <tr>
+                    <td class="status-cell"><span class="status-dot"></span></td>
+                    <td><input class="pkg" value="${pkg}" readonly></td>
+                    <td><input class="node" value="${node}"></td>
+                    <td>
+                        <div class="actions-cell">
+                            <button class="btn btn-start btn-sm" onclick="startNode(this.closest('tr'))">▶ Start</button>
+                            <button class="btn btn-stop  btn-sm" onclick="stopNode(this.closest('tr'))">■ Stop</button>
+                            <button class="btn btn-logs  btn-sm" onclick="showLogs(this.closest('tr'))">≡ Logs</button>
+                        </div>
+                    </td>
+                </tr>`)
+            ).join("");
+
+            const statusRes = await fetch("/status");
+            const statusData = await statusRes.json();
+            const runningSet = new Set(statusData.running);
+            document.querySelectorAll("#node_rows tr").forEach(row => {
+                const pkg  = row.querySelector(".pkg").value;
+                const node = row.querySelector(".node").value;
+                if (runningSet.has(`${pkg}/${node}`)) row.className = "running";
+            });
+        }
+        async function startNode(row) {
+            const pkg  = row.querySelector(".pkg").value;
+            const node = row.querySelector(".node").value;
+            const res  = await fetch(`/start?package_name=${pkg}&node_name=${node}`, { method: "POST" });
+            if (res.status === 403) {
+                const data = await res.json();
+                document.getElementById("limit_count").textContent = data.max;
+                document.getElementById("limit_banner").style.display = "block";
+                return;
+            }
+            document.getElementById("limit_banner").style.display = "none";
+            row.className = "running";
+        }
+
+        async function stopNode(row) {
+            const pkg  = row.querySelector(".pkg").value;
+            const node = row.querySelector(".node").value;
+            await fetch(`/stop?package_name=${pkg}&node_name=${node}`, { method: "POST" });
+            row.className = "stopped";
+        }
+
+        function filterRows() {
+            const q = document.getElementById("search").value.toLowerCase();
+            let visible = 0;
+            document.querySelectorAll("#node_rows tr").forEach(row => {
+                const pkg  = row.querySelector(".pkg")?.value.toLowerCase()  || "";
+                const node = row.querySelector(".node")?.value.toLowerCase() || "";
+                const show = pkg.includes(q) || node.includes(q);
+                row.style.display = show ? "" : "none";
+                if (show) visible++;
+            });
+            document.getElementById("node_count").textContent =
+                q ? `${visible} of ${document.querySelectorAll("#node_rows tr").length} packages` :
+                    `${document.querySelectorAll("#node_rows tr").length} packages`;
+        }
+
+        let logSource = null;
+        let term      = null;
+        let fitAddon  = null;
+
+        function showLogs(row) {
+            const pkg  = row.querySelector(".pkg").value;
+            const node = row.querySelector(".node").value;
+            document.getElementById("log_title").textContent = `${pkg}  /  ${node}`;
+            document.getElementById("log_modal").classList.add("open");
+            document.getElementById("modal_backdrop").style.display = "block";
+
+            if (!term) {
+                fitAddon = new FitAddon.FitAddon();
+                term = new Terminal({ theme: { background: "#07101e" }, convertEol: true, fontSize: 12 });
+                term.loadAddon(fitAddon);
+                term.open(document.getElementById("terminal_container"));
+            } else {
+                term.clear();
+            }
+            fitAddon.fit();
+
+            if (logSource) logSource.close();
+            logSource = new EventSource(`/logs/stream?package_name=${pkg}&node_name=${node}`);
+            logSource.onmessage = (e) => term.writeln(e.data);
+        }
+
+        function closeLog() {
+            if (logSource) { logSource.close(); logSource = null; }
+            document.getElementById("log_modal").classList.remove("open");
+            document.getElementById("modal_backdrop").style.display = "none";
+        }
+        renderRecentPaths();
+    </script>
+</body>
+</html>
