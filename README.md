@@ -7,7 +7,7 @@ I wanted a browser-based UI for managing your ROS2 nodes - start, stop and strea
 
 ROSMAN (ROS2 Manager) is an interface that allows you to control your nodes via a UI that runs on your localhost. It uses FastAPI on the backend and a simple web frontend, with Python in the backend.
 
-![demo](rosman_demo.gif)
+<img src="rosman_demo.gif" width="100%"/>
 
 ---
 
